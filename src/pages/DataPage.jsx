@@ -186,7 +186,7 @@ export default function DataPage({ user }) {
                                 <button className="btn-icon" title="Delete" style={{ color: "var(--red)" }} onClick={() => setDeleteConfirm(tx.id)}><Trash2 size={16} /></button>
                             </div>
                         </div>
-                    ); // <--- Added the missing closing parenthesis and semicolon here!
+                    );
                 })}
             </div>
           )}
