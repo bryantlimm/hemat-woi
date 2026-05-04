@@ -46,12 +46,14 @@ export default function InputPage({ user, onSaved }) {
     }
   };
 
+  const selectedCat = CATEGORIES.find((c) => c.id === category);
+
   return (
     <main className="page-content">
       <div className="input-page-title">New Entry</div>
 
       <div className="input-page-title">
-            <p>Ingat buat hemat ya gais</p>
+        <p>Ingat buat hemat ya gais</p>
       </div>
 
       {/* Type toggle */}
@@ -99,20 +101,30 @@ export default function InputPage({ user, onSaved }) {
           />
         </div>
 
-        {/* Category */}
+        {/* Category dropdown */}
         <div className="field">
           <label>Category</label>
-          <div className="category-grid">
-            {CATEGORIES.map((cat) => (
-              <button
-                key={cat.id}
-                className={`cat-btn ${category === cat.id ? "active" : ""}`}
-                onClick={() => setCategory(cat.id)}
-              >
-                <cat.Icon size={20} />
-                <span style={{ fontSize: 11 }}>{cat.label}</span>
-              </button>
-            ))}
+          <div className="select-wrap">
+            
+            {selectedCat && (
+              <selectedCat.Icon
+                size={16}
+                className="select-icon"
+              />
+            )}
+
+            <select
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              className={selectedCat ? "has-icon" : ""}
+            >
+              {CATEGORIES.map((cat) => (
+                <option key={cat.id} value={cat.id}>
+                  {cat.label}
+                </option>
+              ))}
+            </select>
+
           </div>
         </div>
 

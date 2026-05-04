@@ -120,7 +120,7 @@ export default function AuthPage() {
     <div className="auth-page">
       <div className="auth-card">
         <div className="auth-logo">Cieee yg mau hemat</div>
-        <div className="auth-tagline">bantuin meli dan chia hemat</div>
+        <div className="auth-tagline">bantuin anak anak fc hemat. VELI KHUSUSNYA</div>
 
         {/* Tabs — hidden on forgot screen */}
         {tab !== "forgot" && (
