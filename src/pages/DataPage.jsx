@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import {
   collection, query, orderBy, onSnapshot,
-  doc, updateDoc, deleteDoc
+  doc, updateDoc, deleteDoc, Timestamp
 } from "firebase/firestore";
 import { UtensilsCrossed, Car, ShoppingCart, Gamepad2, Receipt, Heart, BookOpen, MoreHorizontal, Edit2, Trash2, Download } from "lucide-react";
 import { db } from "../firebase";
@@ -18,6 +18,20 @@ const fmtTime = (ts) => {
   if (!ts) return "";
   const d = ts.toDate ? ts.toDate() : new Date(ts);
   return d.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
+};
+
+// Helper: convert a Firestore Timestamp (or plain Date) to "YYYY-MM-DD" and "HH:MM"
+const tsToDateStr = (ts) => {
+  if (!ts) return new Date().toISOString().slice(0, 10);
+  const d = ts.toDate ? ts.toDate() : new Date(ts);
+  return d.toISOString().slice(0, 10);
+};
+const tsToTimeStr = (ts) => {
+  if (!ts) return "00:00";
+  const d = ts.toDate ? ts.toDate() : new Date(ts);
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mm = String(d.getMinutes()).padStart(2, "0");
+  return `${hh}:${mm}`;
 };
 
 const CATEGORIES = [
@@ -247,23 +261,41 @@ export default function DataPage({ user }) {
 }
 
 function EditModal({ tx, uid, onClose }) {
-  const [title, setTitle] = useState(tx.title);
-  const [amount, setAmount] = useState(tx.amount);
+  const [title, setTitle]       = useState(tx.title);
+  const [amount, setAmount]     = useState(tx.amount);
   const [category, setCategory] = useState(
     CATEGORIES.find(c => c.id === tx.category) ? tx.category : "other"
   );
-  const [type, setType] = useState(tx.type);
-  const [saving, setSaving] = useState(false);
+  const [type, setType]         = useState(tx.type);
+  const [date, setDate]         = useState(tsToDateStr(tx.createdAt));
+  const [time, setTime]         = useState(tsToTimeStr(tx.createdAt));
+  const [saving, setSaving]     = useState(false);
+  const [error, setError]       = useState("");
 
   const handleSave = async () => {
-    if (!title.trim() || !amount) return;
+    if (!title.trim()) { setError("Description is required."); return; }
+    if (!amount || isNaN(parseFloat(amount)) || parseFloat(amount) <= 0) {
+      setError("Enter a valid amount."); return;
+    }
+    if (!date) { setError("Date is required."); return; }
+
+    setError("");
     setSaving(true);
+
+    // Combine date + time into a single JS Date, then convert to Firestore Timestamp
+    const [year, month, day] = date.split("-").map(Number);
+    const [hour, minute]     = time.split(":").map(Number);
+    const jsDate = new Date(year, month - 1, day, hour, minute, 0);
+    const newTimestamp = Timestamp.fromDate(jsDate);
+
     await updateDoc(doc(db, "users", uid, "transactions", tx.id), {
-      title: title.trim(),
-      amount: parseFloat(amount),
+      title:     title.trim(),
+      amount:    parseFloat(amount),
       category,
       type,
+      createdAt: newTimestamp,
     });
+
     onClose();
   };
 
@@ -272,35 +304,87 @@ function EditModal({ tx, uid, onClose }) {
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-title">Edit Entry</div>
 
+        {/* Type toggle */}
         <div className="type-toggle" style={{ marginBottom: 20 }}>
-          <button className={`type-btn expense ${type === "expense" ? "active" : ""}`} onClick={() => setType("expense")}>− Expense</button>
-          <button className={`type-btn income ${type === "income" ? "active" : ""}`} onClick={() => setType("income")}>+ Income</button>
+          <button
+            className={`type-btn expense ${type === "expense" ? "active" : ""}`}
+            onClick={() => setType("expense")}
+          >
+            − Expense
+          </button>
+          <button
+            className={`type-btn income ${type === "income" ? "active" : ""}`}
+            onClick={() => setType("income")}
+          >
+            + Income
+          </button>
         </div>
 
+        {/* Date + Time row */}
+        <div className="field">
+          <label>Date &amp; Time</label>
+          <div style={{ display: "flex", gap: 8 }}>
+            <input
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              style={{ flex: 2 }}
+            />
+            <input
+              type="time"
+              value={time}
+              onChange={(e) => setTime(e.target.value)}
+              style={{ flex: 1 }}
+            />
+          </div>
+        </div>
+
+        {/* Amount */}
         <div className="field">
           <label>Amount</label>
           <div className="amount-input-wrap">
             <span className="amount-prefix">Rp</span>
-            <input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} />
+            <input
+              type="number"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+            />
           </div>
         </div>
 
+        {/* Description */}
         <div className="field">
           <label>Description</label>
-          <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} />
+          <input
+            type="text"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+          />
         </div>
 
+        {/* Category */}
         <div className="field">
           <label>Category</label>
           <div className="category-grid">
             {CATEGORIES.map((cat) => (
-              <button key={cat.id} className={`cat-btn ${category === cat.id ? "active" : ""}`} onClick={() => setCategory(cat.id)}>
+              <button
+                key={cat.id}
+                className={`cat-btn ${category === cat.id ? "active" : ""}`}
+                onClick={() => setCategory(cat.id)}
+              >
                 <cat.Icon size={20} />
                 <span style={{ fontSize: 11 }}>{cat.label}</span>
               </button>
             ))}
           </div>
         </div>
+
+        {/* Inline error */}
+        {error && (
+          <p style={{ color: "var(--red)", fontSize: 13, marginTop: -8, marginBottom: 8 }}>
+            {error}
+          </p>
+        )}
 
         <div className="modal-actions">
           <button className="btn-cancel" onClick={onClose}>Cancel</button>
